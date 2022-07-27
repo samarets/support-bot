@@ -15,7 +15,10 @@ type DB struct {
 }
 
 func InitDB() (*DB, error) {
-	db, err := badger.Open(badger.DefaultOptions(dbPath))
+	opts := badger.DefaultOptions(dbPath)
+	opts.Logger = nil
+
+	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
 	}
