@@ -8,13 +8,13 @@ import (
 	"github.com/samarets/support-bot/internal/log"
 )
 
-func (b *bot) StartCommand(message *tgbotapi.Message) {
-	if message == nil {
+func (b *bot) StartCommand(update tgbotapi.Update) {
+	if update.Message == nil {
 		return
 	}
 
 	msg := tgbotapi.NewMessage(
-		message.Chat.ID,
+		update.Message.Chat.ID,
 		"🤖 Привіт, напиши своє питання - ми допоможемо",
 	)
 

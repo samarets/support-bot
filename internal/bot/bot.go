@@ -40,7 +40,7 @@ func (b *bot) InitUpdates() {
 			if update.Message.IsCommand() {
 				switch update.Message.Command() {
 				case "start":
-					b.StartCommand(update.Message)
+					b.StartCommand(update)
 				case "connect":
 					b.ConnectCommand(update)
 				case "break":
