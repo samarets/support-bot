@@ -11,7 +11,7 @@ import (
 
 type bot struct {
 	bot *tgbotapi.BotAPI
-	db  *db.DB
+	db  *botDB
 }
 
 func InitBot(token string, db *db.DB) error {
@@ -20,9 +20,11 @@ func InitBot(token string, db *db.DB) error {
 		return err
 	}
 
+	dbState := newBotDB(db)
+
 	botState := &bot{
 		bot: botAPI,
-		db:  db,
+		db:  dbState,
 	}
 	botState.InitUpdates()
 
@@ -39,35 +41,33 @@ func (b *bot) InitUpdates() {
 		if update.Message != nil {
 			if update.Message.IsCommand() {
 				switch update.Message.Command() {
-				case "start":
+				case startCommand:
 					b.StartCommand(update)
-				case "connect":
+				case connectCommand:
 					b.ConnectCommand(update)
-				case "break":
+				case breakCommand:
 					b.BreakCommand(update)
-
+				case cancelCommand:
+					b.CancelCommand(update)
 				}
 
 				continue
 			}
 
-			var fromQueue tgbotapi.User
-			err := b.db.Get(mergePrefixDB(queue, update.Message.From.ID), &fromQueue)
-			if err != nil && err != badger.ErrKeyNotFound {
+			fromQueue, err := b.db.queueDB().get(update.Message.From.ID)
+			if err != nil {
 				log.Error().Err(err).Send()
 				continue
 			}
 
-			var roomsID int64
-			err = b.db.Get(mergePrefixDB(rooms, update.Message.From.ID), &roomsID)
-			if err != nil && err != badger.ErrKeyNotFound {
+			roomsID, err := b.db.roomsDB().get(update.Message.From.ID)
+			if err != nil {
 				log.Error().Err(err).Send()
 				continue
 			}
 
-			defaultUser := tgbotapi.User{}
-			if fromQueue == defaultUser && roomsID == 0 {
-				err = b.db.Set(mergePrefixDB(queue, update.Message.From.ID), update.Message.From)
+			if fromQueue == nil && roomsID == nil {
+				err = b.db.queueDB().set(update.Message.From.ID, update.Message.From)
 				if err != nil {
 					log.Error().Err(err).Send()
 					continue
@@ -75,8 +75,7 @@ func (b *bot) InitUpdates() {
 
 				var bufferMessages []tgbotapi.Message
 				bufferMessages = append(bufferMessages, *update.Message)
-
-				err = b.db.Set(mergePrefixDB(buffer, update.Message.From.ID), bufferMessages)
+				err = b.db.bufferDB().set(update.Message.From.ID, bufferMessages)
 				if err != nil {
 					log.Error().Err(err).Send()
 					continue
@@ -92,20 +91,19 @@ func (b *bot) InitUpdates() {
 					continue
 				}
 
-				fmt.Println(update.Message.Chat.ID, "create request")
 				continue
 			}
-			if fromQueue != defaultUser && roomsID == 0 {
-				var bufferMessages []tgbotapi.Message
-				err = b.db.Get(mergePrefixDB(buffer, update.Message.From.ID), &bufferMessages)
-				if err != nil && err != badger.ErrKeyNotFound {
+
+			if fromQueue != nil && roomsID == nil {
+				bufferMessages, err := b.db.bufferDB().get(update.Message.From.ID)
+				if err != nil {
 					log.Error().Err(err).Send()
 					continue
 				}
 
 				bufferMessages = append(bufferMessages, *update.Message)
 
-				err = b.db.Set(mergePrefixDB(buffer, update.Message.From.ID), bufferMessages)
+				err = b.db.bufferDB().set(update.Message.From.ID, bufferMessages)
 				if err != nil {
 					log.Error().Err(err).Send()
 					continue
@@ -113,26 +111,27 @@ func (b *bot) InitUpdates() {
 
 				continue
 			}
-			if roomsID != 0 {
-				var whoomSend int64
-				err = b.db.Get(mergePrefixDB(rooms, update.Message.From.ID), &whoomSend)
-				if err != nil && err != badger.ErrKeyNotFound {
+
+			if roomsID != nil {
+				whoomSend, err := b.db.roomsDB().get(update.Message.From.ID)
+				if err != nil {
 					log.Error().Err(err).Send()
 					continue
 				}
+				if whoomSend == nil {
+					log.Error().Err(fmt.Errorf("whoomSend is empty")).Send()
+				}
 
-				msg := tgbotapi.NewCopyMessage(whoomSend, update.Message.Chat.ID, update.Message.MessageID)
+				msg := tgbotapi.NewCopyMessage(*whoomSend, update.Message.Chat.ID, update.Message.MessageID)
 				if update.Message.ReplyToMessage != nil {
-					var replyToID int
-					err = b.db.Get(mergePrefixDB(messagesIDs, update.Message.ReplyToMessage.MessageID), &replyToID)
+					replyToID, err := b.db.messagesIDsDB().get(update.Message.ReplyToMessage.MessageID)
 					if err != nil && err != badger.ErrKeyNotFound {
 						log.Error().Err(err).Send()
 						continue
 					}
 
-					if replyToID != 0 {
-						fmt.Println(replyToID)
-						msg.ReplyToMessageID = replyToID
+					if replyToID != nil {
+						msg.ReplyToMessageID = *replyToID
 					}
 				}
 
@@ -142,26 +141,21 @@ func (b *bot) InitUpdates() {
 					continue
 				}
 
-				err = b.db.Set(mergePrefixDB(messagesIDs, update.Message.MessageID), rMsg.MessageID)
+				err = b.db.messagesIDsDB().set(update.Message.MessageID, rMsg.MessageID)
 				if err != nil {
 					log.Error().Err(err).Send()
 					continue
 				}
 
-				err = b.db.Set(mergePrefixDB(messagesIDs, rMsg.MessageID), update.Message.MessageID)
+				err = b.db.messagesIDsDB().set(rMsg.MessageID, update.Message.MessageID)
 				if err != nil {
 					log.Error().Err(err).Send()
 					continue
 				}
 
-				fmt.Println(update.Message.Chat.ID, "send msg")
 				continue
 			}
 
 		}
 	}
-}
-
-func mergePrefixDB(prefix string, id interface{}) []byte {
-	return []byte(fmt.Sprintf("%s-%d", prefix, id))
 }

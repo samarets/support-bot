@@ -3,9 +3,15 @@ package bot
 import (
 	"fmt"
 
-	"github.com/dgraph-io/badger/v3"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/samarets/support-bot/internal/log"
+)
+
+const (
+	startCommand   = "start"
+	connectCommand = "connect"
+	breakCommand   = "break"
+	cancelCommand  = "cancel"
 )
 
 func (b *bot) StartCommand(update tgbotapi.Update) {
@@ -25,50 +31,47 @@ func (b *bot) StartCommand(update tgbotapi.Update) {
 }
 
 func (b *bot) ConnectCommand(update tgbotapi.Update) {
-	var chatID int64
-	var userTg tgbotapi.User
-
-	err := b.db.Get(mergePrefixDB(queue, update.Message.Chat.ID), &userTg)
+	userTg, err := b.db.queueDB().get(update.Message.Chat.ID)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
-			log.Error().Err(err).Send()
-			return
-		}
-	}
-
-	err = b.db.Get(mergePrefixDB(rooms, update.Message.Chat.ID), &chatID)
-	if err != nil {
-		if err != badger.ErrKeyNotFound {
-			log.Error().Err(err).Send()
-			return
-		}
-	}
-
-	var user tgbotapi.User
-	err = b.db.GetFirstWherePrefix([]byte(queue), &user)
-	if err != nil && err != badger.ErrKeyNotFound {
 		log.Error().Err(err).Send()
 		return
 	}
-
-	var defaultUser tgbotapi.User
-	if user == defaultUser {
+	if userTg != nil {
 		return
 	}
 
-	err = b.db.Set(mergePrefixDB(rooms, user.ID), update.Message.Chat.ID)
+	chatID, err := b.db.roomsDB().get(update.Message.Chat.ID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+	if chatID != nil {
+		return
+	}
+
+	user, err := b.db.queueDB().getFirst()
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
 	}
 
-	err = b.db.Set(mergePrefixDB(rooms, update.Message.Chat.ID), user.ID)
+	if user == nil {
+		return
+	}
+
+	err = b.db.roomsDB().set(user.ID, update.Message.Chat.ID)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
 	}
 
-	err = b.db.Drop(mergePrefixDB(queue, user.ID))
+	err = b.db.roomsDB().set(update.Message.Chat.ID, user.ID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
+	err = b.db.queueDB().delete(user.ID)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
@@ -97,9 +100,8 @@ func (b *bot) ConnectCommand(update tgbotapi.Update) {
 		return
 	}
 
-	var bufferMessages []tgbotapi.Message
-	err = b.db.Get(mergePrefixDB(buffer, user.ID), &bufferMessages)
-	if err != nil && err != badger.ErrKeyNotFound {
+	bufferMessages, err := b.db.bufferDB().get(user.ID)
+	if err != nil {
 		log.Error().Err(err).Send()
 		return
 	}
@@ -116,20 +118,20 @@ func (b *bot) ConnectCommand(update tgbotapi.Update) {
 			return
 		}
 
-		err = b.db.Set(mergePrefixDB(messagesIDs, message.MessageID), rMsg.MessageID)
+		err = b.db.messagesIDsDB().set(message.MessageID, rMsg.MessageID)
 		if err != nil {
 			log.Error().Err(err).Send()
 			continue
 		}
 
-		err = b.db.Set(mergePrefixDB(messagesIDs, rMsg.MessageID), message.MessageID)
+		err = b.db.messagesIDsDB().set(rMsg.MessageID, message.MessageID)
 		if err != nil {
 			log.Error().Err(err).Send()
 			continue
 		}
 	}
 
-	err = b.db.Drop(mergePrefixDB(buffer, user.ID))
+	err = b.db.bufferDB().delete(user.ID)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
@@ -137,30 +139,28 @@ func (b *bot) ConnectCommand(update tgbotapi.Update) {
 }
 
 func (b *bot) BreakCommand(update tgbotapi.Update) {
-	var whomBreak int64
-	err := b.db.Get(mergePrefixDB(rooms, update.Message.Chat.ID), &whomBreak)
+	whomBreak, err := b.db.roomsDB().get(update.Message.Chat.ID)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
-			log.Error().Err(err).Send()
-			return
-		}
-
+		log.Error().Err(err).Send()
+		return
+	}
+	if whomBreak == nil {
 		return
 	}
 
-	err = b.db.Drop(mergePrefixDB(rooms, whomBreak))
+	err = b.db.roomsDB().delete(*whomBreak)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
 	}
 
-	err = b.db.Drop(mergePrefixDB(rooms, update.Message.Chat.ID))
+	err = b.db.roomsDB().delete(update.Message.Chat.ID)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
 	}
 
-	msg := tgbotapi.NewMessage(whomBreak, "🤖 Розмову з оператором було завершено")
+	msg := tgbotapi.NewMessage(*whomBreak, "🤖 Розмову з оператором було завершено")
 	_, err = b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
@@ -168,6 +168,36 @@ func (b *bot) BreakCommand(update tgbotapi.Update) {
 	}
 
 	msg = tgbotapi.NewMessage(update.Message.Chat.ID, "🤖 Ви завершили розмову з користувачем")
+	_, err = b.bot.Send(msg)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+}
+
+func (b *bot) CancelCommand(update tgbotapi.Update) {
+	userTg, err := b.db.queueDB().get(update.Message.Chat.ID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+	if userTg == nil {
+		return
+	}
+
+	err = b.db.queueDB().delete(update.Message.Chat.ID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
+	err = b.db.bufferDB().delete(update.Message.Chat.ID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "🤖 Ви були видалені з черги")
 	_, err = b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
