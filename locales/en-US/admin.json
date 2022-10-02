@@ -1,0 +1,3 @@
+{
+  "user_connected": "You have been attached to a user [{{ .Name }}](tg://user?id={{ .ID }})\nID: {{ .ID }}\nUser question:"
+}

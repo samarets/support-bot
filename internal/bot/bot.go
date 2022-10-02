@@ -43,6 +43,14 @@ func (b *bot) InitUpdates() {
 	updates := b.bot.GetUpdatesChan(u)
 
 	for update := range updates {
+		if update.SentFrom() != nil {
+			user := update.SentFrom()
+			err := b.db.languageDB().set(user.ID, user.LanguageCode)
+			if err != nil {
+				log.Error().Err(err).Send()
+			}
+		}
+
 		if update.Message != nil {
 			if update.Message.IsCommand() {
 				switch update.Message.Command() {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/samarets/support-bot/internal/log"
 
 	"github.com/samarets/support-bot/internal/db"
 )
@@ -14,6 +15,7 @@ const (
 	rooms       = "rooms"
 	buffer      = "buffer"
 	messagesIDs = "messagesIDs"
+	language    = "language"
 )
 
 type botDB struct {
@@ -167,6 +169,36 @@ func (db *messagesIDsDB) get(messageID int) (*int, error) {
 	}
 
 	return &replyToID, nil
+}
+
+type languageDB struct {
+	*botDB
+}
+
+func (db *botDB) languageDB() *languageDB {
+	return &languageDB{
+		botDB: db,
+	}
+}
+
+func (db *languageDB) set(userID int64, lang string) error {
+	return db.db.Set(mergePrefixDB(language, userID), lang)
+}
+
+func (db *languageDB) get(userID int64) string {
+	var lang string
+	err := db.db.Get(mergePrefixDB(language, userID), &lang)
+	if err != nil {
+		switch err {
+		case badger.ErrKeyNotFound:
+			return ""
+		default:
+			log.Error().Err(err).Send()
+			return ""
+		}
+	}
+
+	return lang
 }
 
 func mergePrefixDB(prefix string, id interface{}) []byte {

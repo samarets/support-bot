@@ -21,7 +21,7 @@ func LoadConfig(path, configFile, configType string) (config Config, err error) 
 
 	viper.SetDefault("bot_token", "")
 	viper.SetDefault("notifications_chat_id", 0)
-	viper.SetDefault("default_locale", "uk")
+	viper.SetDefault("default_locale", "uk-UA")
 	viper.SetDefault("bot_prefix", "🤖")
 
 	viper.AutomaticEnv()

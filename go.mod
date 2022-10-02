@@ -3,16 +3,16 @@ module github.com/samarets/support-bot
 go 1.18
 
 require (
-	github.com/BurntSushi/toml v1.2.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
-	github.com/nicksnyder/go-i18n/v2 v2.2.0
+	github.com/kataras/i18n v0.0.6
 	github.com/rs/zerolog v1.27.0
 	github.com/spf13/viper v1.12.0
 	golang.org/x/text v0.3.7
 )
 
 require (
+	github.com/BurntSushi/toml v1.2.0 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.0 // indirect

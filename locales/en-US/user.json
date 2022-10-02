@@ -1,0 +1,4 @@
+{
+  "hello": "Hello, {{ .Name }}, write your question we will help",
+  "operator_connected": "An operator has joined you"
+}

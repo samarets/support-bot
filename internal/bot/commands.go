@@ -1,8 +1,6 @@
 package bot
 
 import (
-	"fmt"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/samarets/support-bot/internal/log"
 )
@@ -19,28 +17,27 @@ func (b *bot) StartCommand(update tgbotapi.Update) {
 		return
 	}
 
-	helloMessage, err := b.tl.NewLocalize(update.SentFrom().LanguageCode, "hello").
-		AddMessage("🤖 Привіт {{.Name}}, напиши своє питання - ми допоможемо").
-		AddTemplate("Name", update.SentFrom().FirstName).
-		Localize()
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
+	helloMessage := b.tl.GetMessage(
+		b.db.languageDB().get(update.SentFrom().ID), "hello", map[string]interface{}{
+			"Name": update.SentFrom().FirstName,
+		},
+	)
 
 	msg := tgbotapi.NewMessage(
 		update.Message.Chat.ID,
 		helloMessage,
 	)
 
-	_, err = b.bot.Send(msg)
+	_, err := b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
 	}
 }
 
 func (b *bot) ConnectCommand(update tgbotapi.Update) {
-	userTg, err := b.db.queueDB().get(update.Message.Chat.ID)
+	pingUser := update.SentFrom()
+
+	userTg, err := b.db.queueDB().get(pingUser.ID)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
@@ -49,7 +46,7 @@ func (b *bot) ConnectCommand(update tgbotapi.Update) {
 		return
 	}
 
-	chatID, err := b.db.roomsDB().get(update.Message.Chat.ID)
+	chatID, err := b.db.roomsDB().get(pingUser.ID)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
@@ -68,13 +65,13 @@ func (b *bot) ConnectCommand(update tgbotapi.Update) {
 		return
 	}
 
-	err = b.db.roomsDB().set(user.ID, update.Message.Chat.ID)
+	err = b.db.roomsDB().set(user.ID, pingUser.ID)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
 	}
 
-	err = b.db.roomsDB().set(update.Message.Chat.ID, user.ID)
+	err = b.db.roomsDB().set(pingUser.ID, user.ID)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
@@ -86,14 +83,10 @@ func (b *bot) ConnectCommand(update tgbotapi.Update) {
 		return
 	}
 
-	operatorConnectedMessage, err := b.tl.NewLocalize(update.SentFrom().LanguageCode, "hello").
-		AddMessage("🤖 До вас доєднався оператор!!!").
-		Localize()
-	if err != nil {
-		log.Error().Err(err).Send()
-	}
-
-	msg := tgbotapi.NewMessage(user.ID, operatorConnectedMessage)
+	msg := tgbotapi.NewMessage(
+		user.ID,
+		b.tl.GetMessage(b.db.languageDB().get(user.ID), "operator_connected"),
+	)
 	_, err = b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
@@ -101,12 +94,12 @@ func (b *bot) ConnectCommand(update tgbotapi.Update) {
 	}
 
 	msg = tgbotapi.NewMessage(
-		update.Message.Chat.ID,
-		fmt.Sprintf(
-			"🤖 Ви були доєднані до користувача [%s](tg://user?id=%d)\nID: %d\nПитання користувача:",
-			user.FirstName+" "+user.LastName,
-			user.ID,
-			user.ID,
+		pingUser.ID,
+		b.tl.GetMessage(
+			b.db.languageDB().get(pingUser.ID), "user_connected", map[string]interface{}{
+				"Name": user.FirstName + " " + user.LastName,
+				"ID":   user.ID,
+			},
 		),
 	)
 	msg.ParseMode = tgbotapi.ModeMarkdownV2
@@ -124,7 +117,7 @@ func (b *bot) ConnectCommand(update tgbotapi.Update) {
 
 	for _, message := range bufferMessages {
 		msg := tgbotapi.NewCopyMessage(
-			update.Message.Chat.ID,
+			pingUser.ID,
 			message.Chat.ID,
 			message.MessageID,
 		)

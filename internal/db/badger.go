@@ -95,7 +95,13 @@ func (d *DB) GetFirstWherePrefix(prefix []byte, v interface{}) error {
 
 	err := d.db.View(
 		func(txn *badger.Txn) error {
-			it := txn.NewIterator(badger.DefaultIteratorOptions)
+			it := txn.NewIterator(
+				badger.IteratorOptions{
+					PrefetchValues: false,
+					Reverse:        false,
+					AllVersions:    false,
+				},
+			)
 			defer it.Close()
 
 			for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
@@ -103,7 +109,9 @@ func (d *DB) GetFirstWherePrefix(prefix []byte, v interface{}) error {
 
 				err := item.Value(
 					func(val []byte) error {
-						data = append(data, val...)
+						if data == nil {
+							data = append(data, val...)
+						}
 						return nil
 					},
 				)
