@@ -5,6 +5,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/samarets/support-bot/internal/log"
+	"github.com/samarets/support-bot/internal/messages"
 )
 
 const (
@@ -21,7 +22,7 @@ func (b *bot) StartCommand(update tgbotapi.Update) {
 
 	msg := tgbotapi.NewMessage(
 		update.Message.Chat.ID,
-		"🤖 Привіт, напиши своє питання - ми допоможемо",
+		b.mh.GetMessage(messages.HelloMessage, update.SentFrom().LanguageCode),
 	)
 
 	_, err := b.bot.Send(msg)
@@ -77,7 +78,7 @@ func (b *bot) ConnectCommand(update tgbotapi.Update) {
 		return
 	}
 
-	msg := tgbotapi.NewMessage(user.ID, "🤖 До вас доєднався оператор")
+	msg := tgbotapi.NewMessage(user.ID, b.mh.GetMessage(messages.OperatorConnected, update.SentFrom().LanguageCode))
 	_, err = b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()

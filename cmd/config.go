@@ -10,6 +10,8 @@ import (
 type Config struct {
 	TelegramLoggerBotToken  string `mapstructure:"bot_token"`
 	TelegramLoggerBotChatID int64  `mapstructure:"notifications_chat_id"`
+	DefaultLocale           string `mapstructure:"default_locale"`
+	BotPrefix               string `mapstructure:"bot_prefix"`
 }
 
 func LoadConfig(path, configFile, configType string) (config Config, err error) {
@@ -19,6 +21,8 @@ func LoadConfig(path, configFile, configType string) (config Config, err error) 
 
 	viper.SetDefault("bot_token", "")
 	viper.SetDefault("notifications_chat_id", 0)
+	viper.SetDefault("default_locale", "uk")
+	viper.SetDefault("bot_prefix", "🤖")
 
 	viper.AutomaticEnv()
 

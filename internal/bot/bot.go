@@ -5,16 +5,24 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"github.com/samarets/support-bot/internal/db"
 	"github.com/samarets/support-bot/internal/log"
+	"github.com/samarets/support-bot/internal/messages"
 )
 
 type bot struct {
 	bot *tgbotapi.BotAPI
 	db  *botDB
+	mh  *messages.Helper
 }
 
-func InitBot(token string, db *db.DB) error {
+func InitBot(token, defaultLocale, botPrefix string, db *db.DB) error {
+	mh, err := messages.NewMessagesHelper(defaultLocale, botPrefix)
+	if err != nil {
+		return err
+	}
+
 	botAPI, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return err
@@ -25,6 +33,7 @@ func InitBot(token string, db *db.DB) error {
 	botState := &bot{
 		bot: botAPI,
 		db:  dbState,
+		mh:  mh,
 	}
 	botState.InitUpdates()
 
