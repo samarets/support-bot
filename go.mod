@@ -3,10 +3,13 @@ module github.com/samarets/support-bot
 go 1.18
 
 require (
+	github.com/BurntSushi/toml v1.2.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
+	github.com/nicksnyder/go-i18n/v2 v2.2.0
 	github.com/rs/zerolog v1.27.0
 	github.com/spf13/viper v1.12.0
+	golang.org/x/text v0.3.7
 )
 
 require (
@@ -38,7 +41,6 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
-	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

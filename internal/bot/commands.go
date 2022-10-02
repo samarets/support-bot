@@ -5,7 +5,6 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/samarets/support-bot/internal/log"
-	"github.com/samarets/support-bot/internal/messages"
 )
 
 const (
@@ -20,12 +19,21 @@ func (b *bot) StartCommand(update tgbotapi.Update) {
 		return
 	}
 
+	helloMessage, err := b.tl.NewLocalize(update.SentFrom().LanguageCode, "hello").
+		AddMessage("🤖 Привіт {{.Name}}, напиши своє питання - ми допоможемо").
+		AddTemplate("Name", update.SentFrom().FirstName).
+		Localize()
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
 	msg := tgbotapi.NewMessage(
 		update.Message.Chat.ID,
-		b.mh.GetMessage(messages.HelloMessage, update.SentFrom().LanguageCode),
+		helloMessage,
 	)
 
-	_, err := b.bot.Send(msg)
+	_, err = b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
 	}
@@ -78,7 +86,14 @@ func (b *bot) ConnectCommand(update tgbotapi.Update) {
 		return
 	}
 
-	msg := tgbotapi.NewMessage(user.ID, b.mh.GetMessage(messages.OperatorConnected, update.SentFrom().LanguageCode))
+	operatorConnectedMessage, err := b.tl.NewLocalize(update.SentFrom().LanguageCode, "hello").
+		AddMessage("🤖 До вас доєднався оператор!!!").
+		Localize()
+	if err != nil {
+		log.Error().Err(err).Send()
+	}
+
+	msg := tgbotapi.NewMessage(user.ID, operatorConnectedMessage)
 	_, err = b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
