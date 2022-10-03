@@ -1,6 +1,8 @@
 package bot
 
 import (
+	"fmt"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/samarets/support-bot/internal/log"
 )
@@ -10,10 +12,14 @@ const (
 	connectCommand = "connect"
 	breakCommand   = "break"
 	cancelCommand  = "cancel"
+	getID          = "getid"
+
+	setGroup = "set_group"
+	event    = "event"
 )
 
 func (b *bot) StartCommand(update tgbotapi.Update) {
-	if update.Message == nil {
+	if !update.FromChat().IsPrivate() {
 		return
 	}
 
@@ -208,6 +214,52 @@ func (b *bot) CancelCommand(update tgbotapi.Update) {
 
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "🤖 Ви були видалені з черги")
 	_, err = b.bot.Send(msg)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+}
+
+func (b *bot) GetID(update tgbotapi.Update) {
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("🤖 %d", update.SentFrom().ID))
+	_, err := b.bot.Send(msg)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+}
+
+func (b *bot) SetGroup(update tgbotapi.Update) {
+	user := update.SentFrom()
+	if user.ID != b.adminID {
+		return
+	}
+
+	err := b.db.groupDB().set(update.FromChat().ID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
+	msg := tgbotapi.NewMessage(
+		update.FromChat().ID,
+		b.tl.GetMessage(b.db.languageDB().get(user.ID), "channel_saved"),
+	)
+	_, err = b.bot.Send(msg)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+}
+
+func (b *bot) Event(update tgbotapi.Update) {
+	groupID := b.db.groupDB().get()
+
+	msg := tgbotapi.NewMessage(
+		groupID,
+		"event",
+	)
+	_, err := b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return

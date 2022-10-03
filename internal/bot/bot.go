@@ -12,13 +12,13 @@ import (
 )
 
 type bot struct {
-	bot *tgbotapi.BotAPI
-	db  *botDB
-	tl  *translations.Translator
+	bot     *tgbotapi.BotAPI
+	db      *botDB
+	tl      *translations.Translator
+	adminID int64
 }
 
-func InitBot(token string, translator *translations.Translator, db *db.DB) error {
-
+func InitBot(token string, adminID int64, translator *translations.Translator, db *db.DB) error {
 	botAPI, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return err
@@ -27,9 +27,10 @@ func InitBot(token string, translator *translations.Translator, db *db.DB) error
 	dbState := newBotDB(db)
 
 	botState := &bot{
-		bot: botAPI,
-		db:  dbState,
-		tl:  translator,
+		bot:     botAPI,
+		db:      dbState,
+		tl:      translator,
+		adminID: adminID,
 	}
 	botState.InitUpdates()
 
@@ -52,6 +53,13 @@ func (b *bot) InitUpdates() {
 		}
 
 		if update.Message != nil {
+			if update.Message.MigrateToChatID != 0 && b.db.groupDB().get() == update.Message.Chat.ID {
+				err := b.db.groupDB().set(update.Message.MigrateToChatID)
+				if err != nil {
+					log.Error().Err(err).Send()
+				}
+			}
+
 			if update.Message.IsCommand() {
 				switch update.Message.Command() {
 				case startCommand:
@@ -62,8 +70,18 @@ func (b *bot) InitUpdates() {
 					b.BreakCommand(update)
 				case cancelCommand:
 					b.CancelCommand(update)
+				case getID:
+					b.GetID(update)
+				case setGroup:
+					b.SetGroup(update)
+				case event:
+					b.Event(update)
 				}
 
+				continue
+			}
+
+			if !update.FromChat().IsPrivate() {
 				continue
 			}
 
@@ -95,7 +113,7 @@ func (b *bot) InitUpdates() {
 				}
 
 				msg := tgbotapi.NewMessage(
-					update.Message.Chat.ID,
+					update.Message.From.ID,
 					"🤖 Ваше повідомлення було отримано, якщо у вас є що додати - напишіть.\n\nСкоро до вас доєднається оператор технічної підтримки",
 				)
 				_, err = b.bot.Send(msg)
@@ -135,7 +153,7 @@ func (b *bot) InitUpdates() {
 					log.Error().Err(fmt.Errorf("whoomSend is empty")).Send()
 				}
 
-				msg := tgbotapi.NewCopyMessage(*whoomSend, update.Message.Chat.ID, update.Message.MessageID)
+				msg := tgbotapi.NewCopyMessage(*whoomSend, update.Message.From.ID, update.Message.MessageID)
 				if update.Message.ReplyToMessage != nil {
 					replyToID, err := b.db.messagesIDsDB().get(update.Message.ReplyToMessage.MessageID)
 					if err != nil && err != badger.ErrKeyNotFound {

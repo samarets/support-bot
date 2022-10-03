@@ -1,3 +1,4 @@
 {
+  "channel_saved": "The message distribution channel has been saved",
   "user_connected": "You have been attached to a user [{{ .Name }}](tg://user?id={{ .ID }})\nID: {{ .ID }}\nUser question:"
 }

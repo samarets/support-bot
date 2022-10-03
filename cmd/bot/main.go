@@ -35,7 +35,7 @@ func main() {
 		}
 	}(database)
 
-	err = bot.InitBot(cfg.TelegramLoggerBotToken, translator, database)
+	err = bot.InitBot(cfg.TelegramLoggerBotToken, cfg.TelegramAdminUserID, translator, database)
 	if err != nil {
 		log.Error().Err(err).Send()
 		panic(err)

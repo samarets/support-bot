@@ -16,6 +16,7 @@ const (
 	buffer      = "buffer"
 	messagesIDs = "messagesIDs"
 	language    = "language"
+	group       = "group"
 )
 
 type botDB struct {
@@ -199,6 +200,36 @@ func (db *languageDB) get(userID int64) string {
 	}
 
 	return lang
+}
+
+type groupDB struct {
+	*botDB
+}
+
+func (db *botDB) groupDB() *groupDB {
+	return &groupDB{
+		botDB: db,
+	}
+}
+
+func (db *groupDB) set(groupID int64) error {
+	return db.db.Set([]byte(group), groupID)
+}
+
+func (db *groupDB) get() int64 {
+	var groupID int64
+	err := db.db.Get([]byte(group), &groupID)
+	if err != nil {
+		switch err {
+		case badger.ErrKeyNotFound:
+			return 0
+		default:
+			log.Error().Err(err).Send()
+			return 0
+		}
+	}
+
+	return groupID
 }
 
 func mergePrefixDB(prefix string, id interface{}) []byte {
