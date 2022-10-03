@@ -29,6 +29,27 @@ func newBotDB(db *db.DB) *botDB {
 	}
 }
 
+func (db *botDB) getUserState(userID int64) (state, error) {
+	fromQueue, err := db.queueDB().get(userID)
+	if err != nil {
+		return unknownState, err
+	}
+	if fromQueue != nil {
+		return queueState, nil
+	}
+
+	fromRoom, err := db.roomsDB().get(userID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return unknownState, err
+	}
+	if fromRoom != nil {
+		return roomState, nil
+	}
+
+	return defaultState, nil
+}
+
 type queueDB struct {
 	*botDB
 }

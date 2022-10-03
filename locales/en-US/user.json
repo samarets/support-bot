@@ -1,4 +1,6 @@
 {
   "hello": "Hello, {{ .Name }}, write your question we will help",
+  "queue_start": "You are in the support queue, your question has been transferred, please wait for a support operator to join you",
+  "room_start": "The operator has already joined you, write your questions in this chat",
   "operator_connected": "An operator has joined you"
 }

@@ -60,10 +60,16 @@ func (b *bot) InitUpdates() {
 				}
 			}
 
+			userState, err := b.db.getUserState(update.SentFrom().ID)
+			if err != nil {
+				log.Error().Err(err).Send()
+				continue
+			}
+
 			if update.Message.IsCommand() {
 				switch update.Message.Command() {
 				case startCommand:
-					b.StartCommand(update)
+					b.StartCommand(update, userState)
 				case connectCommand:
 					b.ConnectCommand(update)
 				case breakCommand:
@@ -85,103 +91,26 @@ func (b *bot) InitUpdates() {
 				continue
 			}
 
-			fromQueue, err := b.db.queueDB().get(update.Message.From.ID)
-			if err != nil {
-				log.Error().Err(err).Send()
-				continue
-			}
-
-			roomsID, err := b.db.roomsDB().get(update.Message.From.ID)
-			if err != nil {
-				log.Error().Err(err).Send()
-				continue
-			}
-
-			if fromQueue == nil && roomsID == nil {
-				err = b.db.queueDB().set(update.Message.From.ID, update.Message.From)
+			if userState == defaultState {
+				err = b.defaultStateFunc(update)
 				if err != nil {
 					log.Error().Err(err).Send()
-					continue
-				}
-
-				var bufferMessages []tgbotapi.Message
-				bufferMessages = append(bufferMessages, *update.Message)
-				err = b.db.bufferDB().set(update.Message.From.ID, bufferMessages)
-				if err != nil {
-					log.Error().Err(err).Send()
-					continue
-				}
-
-				msg := tgbotapi.NewMessage(
-					update.Message.From.ID,
-					"🤖 Ваше повідомлення було отримано, якщо у вас є що додати - напишіть.\n\nСкоро до вас доєднається оператор технічної підтримки",
-				)
-				_, err = b.bot.Send(msg)
-				if err != nil {
-					log.Error().Err(err).Send()
-					continue
 				}
 
 				continue
 			}
-
-			if fromQueue != nil && roomsID == nil {
-				bufferMessages, err := b.db.bufferDB().get(update.Message.From.ID)
+			if userState == queueState {
+				err = b.queueStateFunc(update)
 				if err != nil {
 					log.Error().Err(err).Send()
-					continue
-				}
-
-				bufferMessages = append(bufferMessages, *update.Message)
-
-				err = b.db.bufferDB().set(update.Message.From.ID, bufferMessages)
-				if err != nil {
-					log.Error().Err(err).Send()
-					continue
 				}
 
 				continue
 			}
-
-			if roomsID != nil {
-				whoomSend, err := b.db.roomsDB().get(update.Message.From.ID)
+			if userState != roomState {
+				err = b.roomStateFunc(update)
 				if err != nil {
 					log.Error().Err(err).Send()
-					continue
-				}
-				if whoomSend == nil {
-					log.Error().Err(fmt.Errorf("whoomSend is empty")).Send()
-				}
-
-				msg := tgbotapi.NewCopyMessage(*whoomSend, update.Message.From.ID, update.Message.MessageID)
-				if update.Message.ReplyToMessage != nil {
-					replyToID, err := b.db.messagesIDsDB().get(update.Message.ReplyToMessage.MessageID)
-					if err != nil && err != badger.ErrKeyNotFound {
-						log.Error().Err(err).Send()
-						continue
-					}
-
-					if replyToID != nil {
-						msg.ReplyToMessageID = *replyToID
-					}
-				}
-
-				rMsg, err := b.bot.Send(msg)
-				if err != nil {
-					log.Error().Err(err).Send()
-					continue
-				}
-
-				err = b.db.messagesIDsDB().set(update.Message.MessageID, rMsg.MessageID)
-				if err != nil {
-					log.Error().Err(err).Send()
-					continue
-				}
-
-				err = b.db.messagesIDsDB().set(rMsg.MessageID, update.Message.MessageID)
-				if err != nil {
-					log.Error().Err(err).Send()
-					continue
 				}
 
 				continue
@@ -189,4 +118,84 @@ func (b *bot) InitUpdates() {
 
 		}
 	}
+}
+
+func (b *bot) defaultStateFunc(update tgbotapi.Update) error {
+	err := b.db.queueDB().set(update.Message.From.ID, update.Message.From)
+	if err != nil {
+		return err
+	}
+
+	var bufferMessages []tgbotapi.Message
+	bufferMessages = append(bufferMessages, *update.Message)
+	err = b.db.bufferDB().set(update.Message.From.ID, bufferMessages)
+	if err != nil {
+		return err
+	}
+
+	msg := tgbotapi.NewMessage(
+		update.Message.From.ID,
+		"🤖 Ваше повідомлення було отримано, якщо у вас є що додати - напишіть.\n\nСкоро до вас доєднається оператор технічної підтримки",
+	)
+	_, err = b.bot.Send(msg)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *bot) queueStateFunc(update tgbotapi.Update) error {
+	bufferMessages, err := b.db.bufferDB().get(update.Message.From.ID)
+	if err != nil {
+		return err
+	}
+
+	bufferMessages = append(bufferMessages, *update.Message)
+
+	err = b.db.bufferDB().set(update.Message.From.ID, bufferMessages)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *bot) roomStateFunc(update tgbotapi.Update) error {
+	whoomSend, err := b.db.roomsDB().get(update.Message.From.ID)
+	if err != nil {
+		return err
+	}
+	if whoomSend == nil {
+		return fmt.Errorf("whoomSend is empty")
+	}
+
+	msg := tgbotapi.NewCopyMessage(*whoomSend, update.Message.From.ID, update.Message.MessageID)
+	if update.Message.ReplyToMessage != nil {
+		replyToID, err := b.db.messagesIDsDB().get(update.Message.ReplyToMessage.MessageID)
+		if err != nil && err != badger.ErrKeyNotFound {
+			return err
+		}
+
+		if replyToID != nil {
+			msg.ReplyToMessageID = *replyToID
+		}
+	}
+
+	rMsg, err := b.bot.Send(msg)
+	if err != nil {
+		return err
+	}
+
+	err = b.db.messagesIDsDB().set(update.Message.MessageID, rMsg.MessageID)
+	if err != nil {
+		return err
+	}
+
+	err = b.db.messagesIDsDB().set(rMsg.MessageID, update.Message.MessageID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -18,20 +18,28 @@ const (
 	event    = "event"
 )
 
-func (b *bot) StartCommand(update tgbotapi.Update) {
+func (b *bot) StartCommand(update tgbotapi.Update, userState state) {
 	if !update.FromChat().IsPrivate() {
 		return
 	}
 
-	helloMessage := b.tl.GetMessage(
-		b.db.languageDB().get(update.SentFrom().ID), "hello", map[string]interface{}{
-			"Name": update.SentFrom().FirstName,
-		},
-	)
+	var message string
+	switch userState {
+	case queueState:
+		message = b.tl.GetMessage(b.db.languageDB().get(update.SentFrom().ID), "queue_start")
+	case roomState:
+		message = b.tl.GetMessage(b.db.languageDB().get(update.SentFrom().ID), "room_start")
+	default:
+		message = b.tl.GetMessage(
+			b.db.languageDB().get(update.SentFrom().ID), "hello", map[string]interface{}{
+				"Name": update.SentFrom().FirstName,
+			},
+		)
+	}
 
 	msg := tgbotapi.NewMessage(
 		update.Message.Chat.ID,
-		helloMessage,
+		message,
 	)
 
 	_, err := b.bot.Send(msg)
