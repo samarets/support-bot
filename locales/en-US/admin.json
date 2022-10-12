@@ -1,4 +1,6 @@
 {
   "channel_saved": "The message distribution channel has been saved",
-  "user_connected": "You have been attached to a user [{{ .Name }}](tg://user?id={{ .ID }})\nID: {{ .ID }}\nUser question:"
+  "user_connected": "You have been attached to a user [{{ .Name }}](tg://user?id={{ .ID }})\nID: {{ .ID }}\nUser question:",
+  "add_support_fail": "Command error. You need to reply to the message with this command or type after the command `/add_support 1234567890`",
+  "add_support_success": "The user {{ .UserID }} has been granted technical support rights"
 }

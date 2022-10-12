@@ -17,6 +17,7 @@ const (
 	messagesIDs = "messagesIDs"
 	language    = "language"
 	group       = "group"
+	support     = "support"
 )
 
 type botDB struct {
@@ -251,6 +252,36 @@ func (db *groupDB) get() int64 {
 	}
 
 	return groupID
+}
+
+type supportDB struct {
+	*botDB
+}
+
+func (db *botDB) supportDB() *supportDB {
+	return &supportDB{
+		botDB: db,
+	}
+}
+
+func (db *supportDB) set(supportID int64, isSupport bool) error {
+	return db.db.Set(mergePrefixDB(support, supportID), isSupport)
+}
+
+func (db *supportDB) get(userID int64) bool {
+	var isSupport bool
+	err := db.db.Get(mergePrefixDB(support, userID), &isSupport)
+	if err != nil {
+		switch err {
+		case badger.ErrKeyNotFound:
+			return false
+		default:
+			log.Error().Err(err).Send()
+			return false
+		}
+	}
+
+	return isSupport
 }
 
 func mergePrefixDB(prefix string, id interface{}) []byte {

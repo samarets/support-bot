@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/samarets/support-bot/internal/log"
@@ -14,8 +15,9 @@ const (
 	cancelCommand  = "cancel"
 	getID          = "getid"
 
-	setGroup = "set_group"
-	event    = "event"
+	setGroup   = "set_group"
+	addSupport = "add_support"
+	event      = "event"
 )
 
 func (b *bot) StartCommand(update tgbotapi.Update, userState state) {
@@ -253,6 +255,61 @@ func (b *bot) SetGroup(update tgbotapi.Update) {
 		update.FromChat().ID,
 		b.tl.GetMessage(b.db.languageDB().get(user.ID), "channel_saved"),
 	)
+	_, err = b.bot.Send(msg)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+}
+
+func (b *bot) AddSupport(update tgbotapi.Update, adminID int64) {
+	if update.SentFrom().ID != adminID {
+		return
+	}
+
+	var userID int64
+	if update.Message.ReplyToMessage != nil && !update.Message.ReplyToMessage.From.IsBot {
+		if update.Message.ReplyToMessage.From.ID == adminID {
+			return
+		}
+		userID = update.Message.ReplyToMessage.From.ID
+	} else {
+		argumentID, err := strconv.ParseInt(update.Message.CommandArguments(), 10, 64)
+		if err != nil {
+			msg := tgbotapi.NewMessage(
+				update.Message.Chat.ID,
+				b.tl.GetMessage(b.db.languageDB().get(update.SentFrom().ID), "add_support_fail"),
+			)
+			msg.ReplyToMessageID = update.Message.MessageID
+			msg.ParseMode = tgbotapi.ModeMarkdown
+			_, err := b.bot.Send(msg)
+			if err != nil {
+				log.Error().Err(err).Send()
+				return
+			}
+			return
+		}
+		if argumentID == adminID {
+			return
+		}
+		userID = argumentID
+	}
+
+	err := b.db.supportDB().set(userID, true)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
+	msg := tgbotapi.NewMessage(
+		update.Message.Chat.ID,
+		b.tl.GetMessage(
+			b.db.languageDB().get(update.SentFrom().ID), "add_support_success", map[string]interface{}{
+				"UserID": userID,
+			},
+		),
+	)
+	msg.ReplyToMessageID = update.Message.MessageID
 	_, err = b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
