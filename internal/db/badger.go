@@ -159,7 +159,10 @@ func (d *DB) GetFirstWherePrefix(prefix []byte, v interface{}) error {
 		return err
 	}
 
-	return json.Unmarshal(data, v)
+	if data != nil {
+		return json.Unmarshal(data, v)
+	}
+	return nil
 }
 
 func (d *DB) Drop(prefix []byte) error {

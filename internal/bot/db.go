@@ -94,6 +94,9 @@ func (db *queueDB) getFirst() (*tgbotapi.User, error) {
 			return nil, err
 		}
 	}
+	if fromQueue.ID == 0 {
+		return nil, nil
+	}
 
 	return &fromQueue, nil
 }

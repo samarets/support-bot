@@ -87,7 +87,7 @@ func (b *bot) InitUpdates() {
 				case getSupports:
 					b.GetSupports(update)
 				case event:
-					b.Event(update)
+					b.Event(b.adminID)
 				}
 
 				continue

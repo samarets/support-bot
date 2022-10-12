@@ -413,8 +413,11 @@ func (b *bot) GetSupports(update tgbotapi.Update) {
 	}
 }
 
-func (b *bot) Event(update tgbotapi.Update) {
+func (b *bot) Event(adminID int64) {
 	groupID := b.db.groupDB().get()
+	if groupID == 0 {
+		groupID = adminID
+	}
 
 	msg := tgbotapi.NewMessage(
 		groupID,
