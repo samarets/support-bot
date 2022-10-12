@@ -113,7 +113,7 @@ func (b *bot) InitUpdates() {
 
 				continue
 			}
-			if userState != roomState {
+			if userState == roomState {
 				err = b.roomStateFunc(update)
 				if err != nil {
 					log.Error().Err(err).Send()
