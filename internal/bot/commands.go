@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/samarets/support-bot/internal/log"
@@ -15,9 +16,11 @@ const (
 	cancelCommand  = "cancel"
 	getID          = "getid"
 
-	setGroup   = "set_group"
-	addSupport = "add_support"
-	event      = "event"
+	setGroup    = "set_group"
+	addSupport  = "add_support"
+	delSupport  = "del_support"
+	getSupports = "get_supports"
+	event       = "event"
 )
 
 func (b *bot) StartCommand(update tgbotapi.Update, userState state) {
@@ -310,6 +313,99 @@ func (b *bot) AddSupport(update tgbotapi.Update, adminID int64) {
 		),
 	)
 	msg.ReplyToMessageID = update.Message.MessageID
+	_, err = b.bot.Send(msg)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+}
+
+func (b *bot) DelSupport(update tgbotapi.Update, adminID int64) {
+	if update.SentFrom().ID != adminID {
+		return
+	}
+
+	var userID int64
+	if update.Message.ReplyToMessage != nil && !update.Message.ReplyToMessage.From.IsBot {
+		if update.Message.ReplyToMessage.From.ID == adminID {
+			return
+		}
+		userID = update.Message.ReplyToMessage.From.ID
+	} else {
+		argumentID, err := strconv.ParseInt(update.Message.CommandArguments(), 10, 64)
+		if err != nil {
+			msg := tgbotapi.NewMessage(
+				update.Message.Chat.ID,
+				b.tl.GetMessage(b.db.languageDB().get(update.SentFrom().ID), "del_support_fail"),
+			)
+			msg.ReplyToMessageID = update.Message.MessageID
+			msg.ParseMode = tgbotapi.ModeMarkdown
+			_, err := b.bot.Send(msg)
+			if err != nil {
+				log.Error().Err(err).Send()
+				return
+			}
+			return
+		}
+		if argumentID == adminID {
+			return
+		}
+		userID = argumentID
+	}
+
+	err := b.db.supportDB().set(userID, false)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
+	msg := tgbotapi.NewMessage(
+		update.Message.Chat.ID,
+		b.tl.GetMessage(
+			b.db.languageDB().get(update.SentFrom().ID), "del_support_success", map[string]interface{}{
+				"UserID": userID,
+			},
+		),
+	)
+	msg.ReplyToMessageID = update.Message.MessageID
+	_, err = b.bot.Send(msg)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+}
+
+func (b *bot) GetSupports(update tgbotapi.Update) {
+	supports, err := b.db.supportDB().getAll()
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
+	if len(supports) == 0 {
+		msg := tgbotapi.NewMessage(
+			update.Message.Chat.ID,
+			b.tl.GetMessage(b.db.languageDB().get(update.SentFrom().ID), "supports_empty"),
+		)
+		msg.ReplyToMessageID = update.Message.MessageID
+		_, err := b.bot.Send(msg)
+		if err != nil {
+			log.Error().Err(err).Send()
+			return
+		}
+
+		return
+	}
+
+	var messageStr strings.Builder
+	messageStr.WriteString(b.tl.GetMessage(b.db.languageDB().get(update.SentFrom().ID), "supports_message"))
+	for i, userID := range supports {
+		messageStr.WriteString(fmt.Sprintf("%d. [%d](tg://user?id=%d)\n", i+1, userID, userID))
+	}
+
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, messageStr.String())
+	msg.ReplyToMessageID = update.Message.MessageID
+	msg.ParseMode = tgbotapi.ModeMarkdown
 	_, err = b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()

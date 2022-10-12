@@ -86,6 +86,37 @@ func (d *DB) Get(key []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
 
+func (d *DB) GetAll(prefix []byte) (map[string][]byte, error) {
+	users := make(map[string][]byte)
+
+	err := d.db.View(
+		func(txn *badger.Txn) error {
+			it := txn.NewIterator(badger.DefaultIteratorOptions)
+			defer it.Close()
+
+			for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+				item := it.Item()
+
+				err := item.Value(
+					func(val []byte) error {
+						users[string(item.Key())] = val
+						return nil
+					},
+				)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
 func (d *DB) GetFirstWherePrefix(prefix []byte, v interface{}) error {
 	if v == nil {
 		return fmt.Errorf("v is not set")

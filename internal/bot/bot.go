@@ -82,6 +82,10 @@ func (b *bot) InitUpdates() {
 					b.SetGroup(update)
 				case addSupport:
 					b.AddSupport(update, b.adminID)
+				case delSupport:
+					b.DelSupport(update, b.adminID)
+				case getSupports:
+					b.GetSupports(update)
 				case event:
 					b.Event(update)
 				}

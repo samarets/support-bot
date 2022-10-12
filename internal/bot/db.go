@@ -1,7 +1,10 @@
 package bot
 
 import (
+	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/dgraph-io/badger/v3"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -284,6 +287,39 @@ func (db *supportDB) get(userID int64) bool {
 	return isSupport
 }
 
+func (db *supportDB) getAll() ([]int64, error) {
+	m, err := db.db.GetAll([]byte(support))
+	if err != nil {
+		return nil, err
+	}
+
+	supports := make([]int64, 0, len(m))
+	for key, value := range m {
+		var isSupport bool
+		err = json.Unmarshal(value, &isSupport)
+		if err != nil {
+			return nil, err
+		}
+		if !isSupport {
+			continue
+		}
+
+		key = trimKeyPrefix(key, support)
+		keyInt, err := strconv.ParseInt(key, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		supports = append(supports, keyInt)
+	}
+
+	return supports, nil
+}
+
 func mergePrefixDB(prefix string, id interface{}) []byte {
 	return []byte(fmt.Sprintf("%s-%d", prefix, id))
+}
+
+func trimKeyPrefix(key, prefix string) string {
+	return strings.TrimPrefix(key, prefix+"-")
 }
