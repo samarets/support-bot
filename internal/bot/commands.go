@@ -13,7 +13,7 @@ import (
 const (
 	startCommand = "start"
 	breakCommand = "break"
-	getIDCommand = "getid"
+	getIDCommand = "get_id"
 
 	setGroupCommand    = "set_group"
 	addSupportCommand  = "add_support"
