@@ -1,0 +1,13 @@
+version: "3.7"
+services:
+  bot:
+    build:
+      context: ./
+      dockerfile: cmd/bot/Dockerfile
+    container_name: bot
+    volumes:
+      - bot-data:/bot
+    restart: always
+
+volumes:
+  bot-data:
