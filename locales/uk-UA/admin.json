@@ -16,6 +16,8 @@
   "user_block_bot_update": "*{{ .LastMessage }}*\n\n_Користувач заблокував бота, повідомлення отримав агент {{ .ID }}_ [{{ .Name }}](tg://user?id={{ .ID }})",
   "user_block_bot": "Користувач заблокував бота, тому зв'язок був розірваний",
   "you_block_bot": "Ви заблокували бота, неможливо створити чат",
-  "success_accept_appeal": "*{{ .LastMessage }}*\n\n_Звернення було прийняте агентом {{ .ID }}_ [{{ .Name }}](tg://user?id={{ .ID }})",
-  "no_rights": "Недостатньо прав для виконання цієї дії"
+  "success_accept_appeal": "*{{ .LastMessage }}*\n\n_✅ Звернення було прийняте агентом {{ .ID }}_ [{{ .Name }}](tg://user?id={{ .ID }})",
+  "success_decline_appeal": "*{{ .LastMessage }}*\n\n_❌ Запит був відхилений агентом {{ .ID }}_ [{{ .Name }}](tg://user?id={{ .ID }})",
+  "no_rights": "Недостатньо прав для виконання цієї дії",
+  "chat_end": "Ви завершили розмову з користувачем"
 }

@@ -76,6 +76,8 @@ func (b *bot) InitUpdates() {
 			switch callbackKey {
 			case acceptCallback:
 				b.AcceptCallback(update, update.CallbackQuery.From.ID, userID)
+			case declineCallback:
+				b.DeclineCallback(update, update.CallbackQuery.From.ID, userID)
 			}
 
 			continue
@@ -101,8 +103,6 @@ func (b *bot) InitUpdates() {
 					b.StartCommand(update, userState)
 				case breakCommand:
 					b.BreakCommand(update)
-				case cancelCommand:
-					b.CancelCommand(update)
 				case getIDCommand:
 					b.GetID(update)
 				case setGroupCommand:

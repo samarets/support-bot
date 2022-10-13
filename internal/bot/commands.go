@@ -11,10 +11,9 @@ import (
 )
 
 const (
-	startCommand  = "start"
-	breakCommand  = "break"
-	cancelCommand = "cancel"
-	getIDCommand  = "getid"
+	startCommand = "start"
+	breakCommand = "break"
+	getIDCommand = "getid"
 
 	setGroupCommand    = "set_group"
 	addSupportCommand  = "add_support"
@@ -53,7 +52,11 @@ func (b *bot) StartCommand(update tgbotapi.Update, userState state) {
 }
 
 func (b *bot) BreakCommand(update tgbotapi.Update) {
-	whomBreak, err := b.db.roomsDB().get(update.Message.Chat.ID)
+	if !b.hasRight(update.SentFrom().ID) {
+		return
+	}
+
+	whomBreak, err := b.db.roomsDB().get(update.SentFrom().ID)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
@@ -68,50 +71,26 @@ func (b *bot) BreakCommand(update tgbotapi.Update) {
 		return
 	}
 
-	err = b.db.roomsDB().delete(update.Message.Chat.ID)
+	err = b.db.roomsDB().delete(update.SentFrom().ID)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
 	}
 
-	msg := tgbotapi.NewMessage(*whomBreak, "🤖 Розмову з оператором було завершено")
+	msg := tgbotapi.NewMessage(
+		update.SentFrom().ID,
+		b.tl.GetMessage(b.db.languageDB().get(update.Message.Chat.ID), "chat_end"),
+	)
 	_, err = b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
 	}
 
-	msg = tgbotapi.NewMessage(update.Message.Chat.ID, "🤖 Ви завершили розмову з користувачем")
-	_, err = b.bot.Send(msg)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-}
-
-func (b *bot) CancelCommand(update tgbotapi.Update) {
-	userTg, err := b.db.queueDB().get(update.Message.Chat.ID)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-	if userTg == nil {
-		return
-	}
-
-	err = b.db.queueDB().delete(update.Message.Chat.ID)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-
-	err = b.db.bufferDB().delete(update.Message.Chat.ID)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "🤖 Ви були видалені з черги")
+	msg = tgbotapi.NewMessage(
+		*whomBreak,
+		b.tl.GetMessage(b.db.languageDB().get(*whomBreak), "operator_leave"),
+	)
 	_, err = b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
@@ -120,7 +99,7 @@ func (b *bot) CancelCommand(update tgbotapi.Update) {
 }
 
 func (b *bot) GetID(update tgbotapi.Update) {
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("🤖 %d", update.SentFrom().ID))
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf(b.tl.Prefix+" %d", update.SentFrom().ID))
 	_, err := b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()

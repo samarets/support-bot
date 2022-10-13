@@ -16,6 +16,8 @@
   "user_block_bot_update": "*{{ .LastMessage }}*\n\n_The user blocked the bot, message received agent {{ .ID }}_ [{{ .Name }}](tg://user?id={{ .ID }})",
   "user_block_bot": "The user blocked the bot, so the connection was lost",
   "you_block_bot": "You have blocked the bot, unable to create a chat",
-  "success_accept_appeal": "*{{ .LastMessage }}*\n\n_The appeal was accepted by the agent {{ .ID }}_ [{{ .Name }}](tg://user?id={{ .ID }})",
-  "no_rights": "You do not have sufficient rights to perform this action"
+  "success_accept_appeal": "*{{ .LastMessage }}*\n\n_✅ The appeal was accepted by the agent {{ .ID }}_ [{{ .Name }}](tg://user?id={{ .ID }})",
+  "success_decline_appeal": "*{{ .LastMessage }}*\n\n_❌ The appeal was declined by the agent {{ .ID }}_ [{{ .Name }}](tg://user?id={{ .ID }})",
+  "no_rights": "You do not have sufficient rights to perform this action",
+  "chat_end": "You have ended the conversation with the user"
 }

@@ -8,7 +8,7 @@ import (
 
 type Translator struct {
 	i18n   *i18n.I18n
-	prefix string
+	Prefix string
 }
 
 func NewTranslator(localesDir, defaultLanguage, botPrefix string) (*Translator, error) {
@@ -42,12 +42,12 @@ func NewTranslator(localesDir, defaultLanguage, botPrefix string) (*Translator, 
 
 	return &Translator{
 		i18n:   i,
-		prefix: botPrefix,
+		Prefix: botPrefix,
 	}, nil
 }
 
 func (t *Translator) GetMessage(lang, id string, args ...interface{}) string {
-	return t.prefix + " " + t.i18n.Tr(lang, id, args...)
+	return t.Prefix + " " + t.i18n.Tr(lang, id, args...)
 }
 
 func (t *Translator) GetMessageWithoutPrefix(lang, id string, args ...interface{}) string {

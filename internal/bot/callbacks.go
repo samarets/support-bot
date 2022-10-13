@@ -251,8 +251,65 @@ func (b *bot) sendBufferMessages(supportID, userID int64) error {
 	return nil
 }
 
-func (b *bot) DeclineCallback() {
+func (b *bot) DeclineCallback(update tgbotapi.Update, supportID, userID int64) {
+	st, err := b.db.getUserState(userID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+	if st != queueState {
+		callback := tgbotapi.NewCallback(
+			update.CallbackQuery.ID,
+			b.tl.GetMessageWithoutPrefix(b.db.languageDB().get(supportID), "user_no_expect"),
+		)
+		_, err := b.bot.Request(callback)
+		if err != nil {
+			log.Error().Err(err).Send()
+			return
+		}
 
+		return
+	}
+
+	updateMsg := tgbotapi.NewEditMessageText(
+		update.FromChat().ID,
+		update.CallbackQuery.Message.MessageID,
+		b.tl.GetMessageWithoutPrefix(
+			"", "success_decline_appeal", map[string]interface{}{
+				"LastMessage": update.CallbackQuery.Message.Text,
+				"Name":        update.SentFrom().FirstName + " " + update.SentFrom().LastName,
+				"ID":          supportID,
+			},
+		),
+	)
+	updateMsg.ParseMode = tgbotapi.ModeMarkdown
+	_, err = b.bot.Request(updateMsg)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
+	err = b.db.queueDB().delete(userID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
+	err = b.db.bufferDB().delete(userID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+
+	msg := tgbotapi.NewMessage(
+		userID,
+		b.tl.GetMessage(b.db.languageDB().get(userID), "request_declined"),
+	)
+	_, err = b.bot.Send(msg)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
 }
 
 func createCallbackData(key string, userID int64) string {

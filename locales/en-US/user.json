@@ -3,5 +3,7 @@
   "queue_start": "You are in the support queue, your question has been transferred, please wait for a support operator to join you",
   "room_start": "The operator has already joined you, write your questions in this chat",
   "operator_connected": "An operator has joined you",
-  "got_message": "We received your message, if you want to add something, write it.\n\nAn operator will join you shortly"
+  "got_message": "We received your message, if you want to add something, write it.\n\nAn operator will join you shortly",
+  "request_declined": "Your request has been rejected. If you believe that the request was rejected without meaning, then try again",
+  "operator_leave": "The conversation with the operator has been completed"
 }
