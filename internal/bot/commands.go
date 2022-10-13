@@ -79,7 +79,7 @@ func (b *bot) BreakCommand(update tgbotapi.Update) {
 
 	msg := tgbotapi.NewMessage(
 		update.SentFrom().ID,
-		b.tl.GetMessage(b.db.languageDB().get(update.Message.Chat.ID), "chat_end"),
+		b.tl.GetMessage(b.db.languageDB().get(update.SentFrom().ID), "chat_end"),
 	)
 	_, err = b.bot.Send(msg)
 	if err != nil {
@@ -218,9 +218,53 @@ func (b *bot) DelSupport(update tgbotapi.Update) {
 		userID = argumentID
 	}
 
-	// todo: add break current chats with users
+	st, err := b.db.getUserState(userID)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
 
-	err := b.db.supportDB().set(userID, false)
+	if st == roomState {
+		whomBreak, err := b.db.roomsDB().get(userID)
+		if err != nil {
+			log.Error().Err(err).Send()
+			return
+		}
+
+		err = b.db.roomsDB().delete(*whomBreak)
+		if err != nil {
+			log.Error().Err(err).Send()
+			return
+		}
+
+		err = b.db.roomsDB().delete(userID)
+		if err != nil {
+			log.Error().Err(err).Send()
+			return
+		}
+
+		msg := tgbotapi.NewMessage(
+			userID,
+			b.tl.GetMessage(b.db.languageDB().get(userID), "chat_end"),
+		)
+		_, err = b.bot.Send(msg)
+		if err != nil {
+			log.Error().Err(err).Send()
+			return
+		}
+
+		msg = tgbotapi.NewMessage(
+			*whomBreak,
+			b.tl.GetMessage(b.db.languageDB().get(*whomBreak), "operator_leave"),
+		)
+		_, err = b.bot.Send(msg)
+		if err != nil {
+			log.Error().Err(err).Send()
+			return
+		}
+	}
+
+	err = b.db.supportDB().set(userID, false)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
