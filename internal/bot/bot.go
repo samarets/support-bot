@@ -52,6 +52,35 @@ func (b *bot) InitUpdates() {
 			}
 		}
 
+		if update.CallbackQuery != nil {
+			if !b.hasRight(update.CallbackQuery.From.ID) {
+				callback := tgbotapi.NewCallback(
+					update.CallbackQuery.ID,
+					b.tl.GetMessageWithoutPrefix(b.db.languageDB().get(update.SentFrom().ID), "no_rights"),
+				)
+				_, err := b.bot.Request(callback)
+				if err != nil {
+					log.Error().Err(err).Send()
+					continue
+				}
+
+				continue
+			}
+
+			callbackKey, userID, err := parseCallbackData(update.CallbackData())
+			if err != nil {
+				log.Error().Err(err).Send()
+				continue
+			}
+
+			switch callbackKey {
+			case acceptCallback:
+				b.AcceptCallback(update, update.CallbackQuery.From.ID, userID)
+			}
+
+			continue
+		}
+
 		if update.Message != nil {
 			if update.Message.MigrateToChatID != 0 && b.db.groupDB().get() == update.Message.Chat.ID {
 				err := b.db.groupDB().set(update.Message.MigrateToChatID)
@@ -70,24 +99,20 @@ func (b *bot) InitUpdates() {
 				switch update.Message.Command() {
 				case startCommand:
 					b.StartCommand(update, userState)
-				case connectCommand:
-					b.ConnectCommand(update)
 				case breakCommand:
 					b.BreakCommand(update)
 				case cancelCommand:
 					b.CancelCommand(update)
-				case getID:
+				case getIDCommand:
 					b.GetID(update)
-				case setGroup:
+				case setGroupCommand:
 					b.SetGroup(update)
-				case addSupport:
-					b.AddSupport(update, b.adminID)
-				case delSupport:
-					b.DelSupport(update, b.adminID)
-				case getSupports:
+				case addSupportCommand:
+					b.AddSupport(update)
+				case delSupportCommand:
+					b.DelSupport(update)
+				case getSupportsCommand:
 					b.GetSupports(update)
-				case event:
-					b.Event(b.adminID)
 				}
 
 				continue
@@ -141,12 +166,14 @@ func (b *bot) defaultStateFunc(update tgbotapi.Update) error {
 
 	msg := tgbotapi.NewMessage(
 		update.Message.From.ID,
-		"🤖 Ваше повідомлення було отримано, якщо у вас є що додати - напишіть.\n\nСкоро до вас доєднається оператор технічної підтримки",
+		b.tl.GetMessage(b.db.languageDB().get(update.SentFrom().ID), "got_message"),
 	)
 	_, err = b.bot.Send(msg)
 	if err != nil {
 		return err
 	}
+
+	b.sendSupportRequest(update)
 
 	return nil
 }
@@ -193,6 +220,8 @@ func (b *bot) roomStateFunc(update tgbotapi.Update) error {
 		return err
 	}
 
+	// todo: if err == bot was blocked by the user then break the connection
+
 	err = b.db.messagesIDsDB().set(update.Message.MessageID, rMsg.MessageID)
 	if err != nil {
 		return err
@@ -204,4 +233,51 @@ func (b *bot) roomStateFunc(update tgbotapi.Update) error {
 	}
 
 	return nil
+}
+
+func (b *bot) sendSupportRequest(update tgbotapi.Update) {
+	groupID := b.db.groupDB().get()
+	if groupID == 0 {
+		groupID = b.adminID
+	}
+
+	msg := tgbotapi.NewMessage(
+		groupID,
+		b.tl.GetMessage(
+			"", "new_appeal", map[string]interface{}{
+				"UserID": update.SentFrom().ID,
+			},
+		),
+	)
+
+	var keyboardRows [][]tgbotapi.InlineKeyboardButton
+	buttonFirst := tgbotapi.NewInlineKeyboardButtonData(
+		b.tl.GetMessageWithoutPrefix("", "confirm_appeal"),
+		createCallbackData(acceptCallback, update.SentFrom().ID),
+	)
+	buttonSecond := tgbotapi.NewInlineKeyboardButtonData(
+		b.tl.GetMessageWithoutPrefix("", "decline_appeal"),
+		createCallbackData(declineCallback, update.SentFrom().ID),
+	)
+	keyboard := tgbotapi.NewInlineKeyboardRow(buttonFirst, buttonSecond)
+	keyboardRows = append(keyboardRows, keyboard)
+
+	msg.ReplyMarkup = tgbotapi.InlineKeyboardMarkup{
+		InlineKeyboard: keyboardRows,
+	}
+	msg.ParseMode = tgbotapi.ModeMarkdown
+
+	_, err := b.bot.Send(msg)
+	if err != nil {
+		log.Error().Err(err).Send()
+		return
+	}
+}
+
+func (b *bot) hasRight(userID int64) bool {
+	if userID == b.adminID || b.db.supportDB().get(userID) {
+		return true
+	}
+
+	return false
 }

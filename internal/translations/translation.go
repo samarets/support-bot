@@ -49,3 +49,7 @@ func NewTranslator(localesDir, defaultLanguage, botPrefix string) (*Translator, 
 func (t *Translator) GetMessage(lang, id string, args ...interface{}) string {
 	return t.prefix + " " + t.i18n.Tr(lang, id, args...)
 }
+
+func (t *Translator) GetMessageWithoutPrefix(lang, id string, args ...interface{}) string {
+	return t.i18n.Tr(lang, id, args...)
+}

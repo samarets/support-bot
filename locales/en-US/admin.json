@@ -6,5 +6,16 @@
   "del_support_fail": "Command error. You need to reply to the message with this command or type after the command `/del_support 1234567890`",
   "del_support_success": "User {{ .UserID }} has been revoked technical support rights",
   "supports_message": "Support agents: \n",
-  "supports_empty": "There are no support agents"
+  "supports_empty": "There are no support agents",
+  "new_appeal": "*New appeal from user* `{{ .UserID }}`",
+  "confirm_appeal": "✅ Confirm Appeal",
+  "decline_appeal": "❌ Decline",
+  "complete_last_appeal": "Complete the past appeal first",
+  "user_no_expect": "The user no longer expects support",
+  "server_error": "Server error or you have blocked the bot",
+  "user_block_bot_update": "*{{ .LastMessage }}*\n\n_The user blocked the bot, message received agent {{ .ID }}_ [{{ .Name }}](tg://user?id={{ .ID }})",
+  "user_block_bot": "The user blocked the bot, so the connection was lost",
+  "you_block_bot": "You have blocked the bot, unable to create a chat",
+  "success_accept_appeal": "*{{ .LastMessage }}*\n\n_The appeal was accepted by the agent {{ .ID }}_ [{{ .Name }}](tg://user?id={{ .ID }})",
+  "no_rights": "You do not have sufficient rights to perform this action"
 }

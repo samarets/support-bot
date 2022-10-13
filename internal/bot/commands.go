@@ -6,21 +6,20 @@ import (
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"github.com/samarets/support-bot/internal/log"
 )
 
 const (
-	startCommand   = "start"
-	connectCommand = "connect"
-	breakCommand   = "break"
-	cancelCommand  = "cancel"
-	getID          = "getid"
+	startCommand  = "start"
+	breakCommand  = "break"
+	cancelCommand = "cancel"
+	getIDCommand  = "getid"
 
-	setGroup    = "set_group"
-	addSupport  = "add_support"
-	delSupport  = "del_support"
-	getSupports = "get_supports"
-	event       = "event"
+	setGroupCommand    = "set_group"
+	addSupportCommand  = "add_support"
+	delSupportCommand  = "del_support"
+	getSupportsCommand = "get_supports"
 )
 
 func (b *bot) StartCommand(update tgbotapi.Update, userState state) {
@@ -50,119 +49,6 @@ func (b *bot) StartCommand(update tgbotapi.Update, userState state) {
 	_, err := b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
-	}
-}
-
-func (b *bot) ConnectCommand(update tgbotapi.Update) {
-	pingUser := update.SentFrom()
-
-	userTg, err := b.db.queueDB().get(pingUser.ID)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-	if userTg != nil {
-		return
-	}
-
-	chatID, err := b.db.roomsDB().get(pingUser.ID)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-	if chatID != nil {
-		return
-	}
-
-	user, err := b.db.queueDB().getFirst()
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-
-	if user == nil {
-		return
-	}
-
-	err = b.db.roomsDB().set(user.ID, pingUser.ID)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-
-	err = b.db.roomsDB().set(pingUser.ID, user.ID)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-
-	err = b.db.queueDB().delete(user.ID)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-
-	msg := tgbotapi.NewMessage(
-		user.ID,
-		b.tl.GetMessage(b.db.languageDB().get(user.ID), "operator_connected"),
-	)
-	_, err = b.bot.Send(msg)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-
-	msg = tgbotapi.NewMessage(
-		pingUser.ID,
-		b.tl.GetMessage(
-			b.db.languageDB().get(pingUser.ID), "user_connected", map[string]interface{}{
-				"Name": user.FirstName + " " + user.LastName,
-				"ID":   user.ID,
-			},
-		),
-	)
-	msg.ParseMode = tgbotapi.ModeMarkdownV2
-	_, err = b.bot.Send(msg)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-
-	bufferMessages, err := b.db.bufferDB().get(user.ID)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-
-	for _, message := range bufferMessages {
-		msg := tgbotapi.NewCopyMessage(
-			pingUser.ID,
-			message.Chat.ID,
-			message.MessageID,
-		)
-		rMsg, err := b.bot.Send(msg)
-		if err != nil {
-			log.Error().Err(err).Send()
-			return
-		}
-
-		err = b.db.messagesIDsDB().set(message.MessageID, rMsg.MessageID)
-		if err != nil {
-			log.Error().Err(err).Send()
-			continue
-		}
-
-		err = b.db.messagesIDsDB().set(rMsg.MessageID, message.MessageID)
-		if err != nil {
-			log.Error().Err(err).Send()
-			continue
-		}
-	}
-
-	err = b.db.bufferDB().delete(user.ID)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
 	}
 }
 
@@ -265,14 +151,14 @@ func (b *bot) SetGroup(update tgbotapi.Update) {
 	}
 }
 
-func (b *bot) AddSupport(update tgbotapi.Update, adminID int64) {
-	if update.SentFrom().ID != adminID {
+func (b *bot) AddSupport(update tgbotapi.Update) {
+	if update.SentFrom().ID != b.adminID {
 		return
 	}
 
 	var userID int64
 	if update.Message.ReplyToMessage != nil && !update.Message.ReplyToMessage.From.IsBot {
-		if update.Message.ReplyToMessage.From.ID == adminID {
+		if update.Message.ReplyToMessage.From.ID == b.adminID {
 			return
 		}
 		userID = update.Message.ReplyToMessage.From.ID
@@ -292,7 +178,7 @@ func (b *bot) AddSupport(update tgbotapi.Update, adminID int64) {
 			}
 			return
 		}
-		if argumentID == adminID {
+		if argumentID == b.adminID {
 			return
 		}
 		userID = argumentID
@@ -320,14 +206,14 @@ func (b *bot) AddSupport(update tgbotapi.Update, adminID int64) {
 	}
 }
 
-func (b *bot) DelSupport(update tgbotapi.Update, adminID int64) {
-	if update.SentFrom().ID != adminID {
+func (b *bot) DelSupport(update tgbotapi.Update) {
+	if update.SentFrom().ID != b.adminID {
 		return
 	}
 
 	var userID int64
 	if update.Message.ReplyToMessage != nil && !update.Message.ReplyToMessage.From.IsBot {
-		if update.Message.ReplyToMessage.From.ID == adminID {
+		if update.Message.ReplyToMessage.From.ID == b.adminID {
 			return
 		}
 		userID = update.Message.ReplyToMessage.From.ID
@@ -347,11 +233,13 @@ func (b *bot) DelSupport(update tgbotapi.Update, adminID int64) {
 			}
 			return
 		}
-		if argumentID == adminID {
+		if argumentID == b.adminID {
 			return
 		}
 		userID = argumentID
 	}
+
+	// todo: add break current chats with users
 
 	err := b.db.supportDB().set(userID, false)
 	if err != nil {
@@ -407,23 +295,6 @@ func (b *bot) GetSupports(update tgbotapi.Update) {
 	msg.ReplyToMessageID = update.Message.MessageID
 	msg.ParseMode = tgbotapi.ModeMarkdown
 	_, err = b.bot.Send(msg)
-	if err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
-}
-
-func (b *bot) Event(adminID int64) {
-	groupID := b.db.groupDB().get()
-	if groupID == 0 {
-		groupID = adminID
-	}
-
-	msg := tgbotapi.NewMessage(
-		groupID,
-		"event",
-	)
-	_, err := b.bot.Send(msg)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return

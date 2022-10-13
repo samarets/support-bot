@@ -8,3 +8,7 @@ const (
 	queueState   state = "queue-state"
 	roomState    state = "room-state"
 )
+
+const (
+	botWasBlockedError string = "Forbidden: bot was blocked by the user"
+)
