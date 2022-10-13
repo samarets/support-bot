@@ -59,3 +59,6 @@ Fast and simple **Telegram Support Bot** 🤖. It will help to connect the user 
 
 ## Images:
 ![Example Bot Image](https://raw.githubusercontent.com/samarets/support-bot/main/assets/user-agent.png)
+
+## Contributions:
+Any contributions are welcome, also if there are problems in the process, then create an issue
