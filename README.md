@@ -58,3 +58,4 @@ Fast and simple **Telegram Support Bot** 🤖. It will help to connect the user 
       - `go run cmd/bot/main.go`
 
 ## Images:
+![Example Bot Image](https://raw.githubusercontent.com/samarets/support-bot/main/assets/user-agent.png)
