@@ -148,24 +148,54 @@ func (b *bot) InitUpdates() {
 			}
 
 		}
+
+		if update.EditedMessage != nil {
+			userState, err := b.db.getUserState(update.SentFrom().ID)
+			if err != nil {
+				log.Error().Err(err).Send()
+				continue
+			}
+
+			if userState != queueState && userState != roomState {
+				continue
+			}
+
+			if userState == queueState {
+				err = b.queueStateFunc(update)
+				if err != nil {
+					log.Error().Err(err).Send()
+				}
+
+				continue
+			}
+			if userState == roomState {
+				err = b.updateMsgFunc(update)
+				if err != nil {
+					log.Error().Err(err).Send()
+				}
+
+				continue
+			}
+
+		}
 	}
 }
 
 func (b *bot) defaultStateFunc(update tgbotapi.Update) error {
-	err := b.db.queueDB().set(update.Message.From.ID, update.Message.From)
+	err := b.db.queueDB().set(update.SentFrom().ID, update.Message.From)
 	if err != nil {
 		return err
 	}
 
 	var bufferMessages []tgbotapi.Message
 	bufferMessages = append(bufferMessages, *update.Message)
-	err = b.db.bufferDB().set(update.Message.From.ID, bufferMessages)
+	err = b.db.bufferDB().set(update.SentFrom().ID, bufferMessages)
 	if err != nil {
 		return err
 	}
 
 	msg := tgbotapi.NewMessage(
-		update.Message.From.ID,
+		update.SentFrom().ID,
 		b.tl.GetMessage(b.db.languageDB().get(update.SentFrom().ID), "got_message"),
 	)
 	_, err = b.bot.Send(msg)
@@ -179,14 +209,23 @@ func (b *bot) defaultStateFunc(update tgbotapi.Update) error {
 }
 
 func (b *bot) queueStateFunc(update tgbotapi.Update) error {
-	bufferMessages, err := b.db.bufferDB().get(update.Message.From.ID)
+	bufferMessages, err := b.db.bufferDB().get(update.SentFrom().ID)
 	if err != nil {
 		return err
 	}
 
-	bufferMessages = append(bufferMessages, *update.Message)
+	if update.EditedMessage != nil {
+		for i, msg := range bufferMessages {
+			if msg.MessageID != update.EditedMessage.MessageID {
+				continue
+			}
+			bufferMessages[i] = *update.EditedMessage
+		}
+	} else {
+		bufferMessages = append(bufferMessages, *update.Message)
+	}
 
-	err = b.db.bufferDB().set(update.Message.From.ID, bufferMessages)
+	err = b.db.bufferDB().set(update.SentFrom().ID, bufferMessages)
 	if err != nil {
 		return err
 	}
@@ -195,15 +234,15 @@ func (b *bot) queueStateFunc(update tgbotapi.Update) error {
 }
 
 func (b *bot) roomStateFunc(update tgbotapi.Update) error {
-	whoomSend, err := b.db.roomsDB().get(update.Message.From.ID)
+	whomSend, err := b.db.roomsDB().get(update.SentFrom().ID)
 	if err != nil {
 		return err
 	}
-	if whoomSend == nil {
+	if whomSend == nil {
 		return fmt.Errorf("whoomSend is empty")
 	}
 
-	msg := tgbotapi.NewCopyMessage(*whoomSend, update.Message.From.ID, update.Message.MessageID)
+	msg := tgbotapi.NewCopyMessage(*whomSend, update.SentFrom().ID, update.Message.MessageID)
 	if update.Message.ReplyToMessage != nil {
 		replyToID, err := b.db.messagesIDsDB().get(update.Message.ReplyToMessage.MessageID)
 		if err != nil && err != badger.ErrKeyNotFound {
@@ -228,6 +267,38 @@ func (b *bot) roomStateFunc(update tgbotapi.Update) error {
 	}
 
 	err = b.db.messagesIDsDB().set(rMsg.MessageID, update.Message.MessageID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *bot) updateMsgFunc(update tgbotapi.Update) error {
+	whomSend, err := b.db.roomsDB().get(update.SentFrom().ID)
+	if err != nil {
+		return err
+	}
+	if whomSend == nil {
+		return fmt.Errorf("whomSend is empty")
+	}
+
+	msgID, err := b.db.messagesIDsDB().get(update.EditedMessage.MessageID)
+	if err != nil {
+		return err
+	}
+	if msgID == nil {
+		return fmt.Errorf("msgID is empty")
+	}
+
+	var updMsg tgbotapi.Chattable
+	if update.EditedMessage.Caption != "" {
+		updMsg = tgbotapi.NewEditMessageCaption(*whomSend, *msgID, update.EditedMessage.Caption)
+	} else {
+		updMsg = tgbotapi.NewEditMessageText(*whomSend, *msgID, update.EditedMessage.Text)
+	}
+
+	_, err = b.bot.Send(updMsg)
 	if err != nil {
 		return err
 	}

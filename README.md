@@ -4,6 +4,8 @@ Fast and simple **Telegram Support Bot** 🤖. It will help to connect the user 
 ## Features:
 - All message types are forwarded
 - Message replies work
+- Editing text/caption work
+- Full message editing in queue work 
 - Adding/Removing support agents by a special command
 - List of all support agents
 - Post a support request in a separate chat

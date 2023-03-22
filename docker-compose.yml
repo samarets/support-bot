@@ -6,7 +6,7 @@ services:
       dockerfile: cmd/bot/Dockerfile
     container_name: bot
     volumes:
-      - bot-data:/bot
+      - ./.db:/app/.db
     restart: always
 
 volumes:
