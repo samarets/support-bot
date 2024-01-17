@@ -51,7 +51,7 @@ Fast and simple **Telegram Support Bot** 🤖. It will help to connect the user 
 
 ## Installation:
 1. Clone this repository `git clone https://github.com/samarets/support-bot.git`
-2. Create .env file `cp  .env.example .env`
+2. Create .env file `cp .env.example .env`
 3. Paste your Bot Token and User ID to `.env`. Set default language
 4. Run Bot:
     - With Docker: `make build`
